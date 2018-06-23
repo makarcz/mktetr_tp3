@@ -9,15 +9,16 @@ const { constant definitions }
    ScHeight  = 20;  {scene height}
    ScRow     = 1;   {scene left-upper corner coordinate (Y or Row)}
    ScCol     = 1;   {scene left-upper corner coordinate (X or Col)}
-   FallSpeed = 10;  {determines the initial speed of falling piece}
-   RefrRate  = 100; {determines how often the scene is refreshed}
+   FallSpeed = 5;   {determines the initial speed of falling piece}
+   RefrRate  = 50;  {determines how often the scene is refreshed}
+   NumOfPcs  = 7;   {number of pieces}
 
 type { type declarations }
 
    Cell = (Empty, Filled);
    Shape = array[1..4,1..4] of Cell; { puzzle shape definition }
    Block = array[1..4] of Shape; { all rotated variations of a puzzle }
-   All = array[1..6] of Block;   { array of all puzzles }
+   All = array[1..NumOfPcs] of Block;   { array of all puzzles }
    Scene = array[1..ScWidth,1..ScHeight] of Cell;
 
    { Piece falls and when it can no longer fall down, it is converted    }
@@ -52,38 +53,57 @@ var { declare variables of the program }
    CurrBlk:    PtrBlkInfo; {pointer to current block}
    NewBlk:     PtrBlkInfo; {pointer to new block - temporary}
    Bucket:     Scene;
+   Freeze:     Boolean;    {pause / restore flag}
+   Score:      Integer;
 
 {
    -----------------------------------------------------------
     Display or erase block.
     x, y - screen coordinates (x (column): 1..40,
                                y (row):    1..24)
-    sn - shape # (1..5)
+    sn - shape # (1..NumOfPcs)
     rn - sequence/rotation # (1..4)
     era - True: erase block/False: paint block.
+    cs - True: validate coordinates against scene boundaries
    -----------------------------------------------------------
 }
-procedure DispBlock(x,y,sn,rn: Integer; era: Boolean);
+procedure DispBlock(x,y,sn,rn: Integer; era: Boolean; cs: Boolean);
 var
-   i,j: Integer;
+   i,j:     Integer;
+   scv:     Boolean; { within scene coordinates }
+   col,row: Integer;
 begin
+   scv := False;
    bl := Pieces[sn];
    sh := bl[rn];
    for i := 1 to 4 do
    begin
       for j := 1 to 4 do
       begin
-         GotoXY(x*2+i*2-4,y+j-1);
-         if sh[i,j] = Filled then
+         col := x * 2 + i * 2 - 4;
+         row := y + j - 1;
+         if cs = True then
          begin
-            if era = True then
-              write('  ')
-            else
+            if (col > ScCol) and (col <= (ScCol + 1 + ScWidth * 2))
+               and
+               (row >= ScRow) and (row <= (ScRow + ScHeight))
+            then scv := True;
+         end
+         else scv := True;
+         if scv = True then
+         begin
+            GotoXY(col, row);
+            if sh[i,j] = Filled then
             begin
-              write(Chr(27)); { ESC code }
-              write('G4  ');  { Reverse ON, space }
-              write(Chr(27)); { ESC code }
-              write('G0');    { Reverse OFF }
+               if era = True then
+                  write('  ')
+               else
+               begin
+                  write(Chr(27)); { ESC code }
+                  write('G4  ');  { Reverse ON, space }
+                  write(Chr(27)); { ESC code }
+                  write('G0');    { Reverse OFF }
+               end;
             end;
          end;
       end;
@@ -119,8 +139,9 @@ end;
 }
 procedure InitAllShapes;
 var
-   i,j: Integer;
+   n: Integer; {piece number}
 begin
+   n := 1;
    InitShape(Empty);
    {
       #
@@ -144,7 +165,8 @@ begin
    bl[2] := sh;
    bl[3] := bl[1];
    bl[4] := bl[2];
-   Pieces[1] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
    InitShape(Empty);
    {
      # #
@@ -158,7 +180,8 @@ begin
    bl[2] := sh;
    bl[3] := sh;
    bl[4] := sh;
-   Pieces[2] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
    InitShape(Empty);
    {
        #
@@ -201,7 +224,8 @@ begin
    sh[4,3] := Filled;
    sh[4,4] := Filled;
    bl[4] := sh;
-   Pieces[3] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
    InitShape(Empty);
    {
      # # #
@@ -244,7 +268,8 @@ begin
    sh[3,4] := Filled;
    sh[4,4] := Filled;
    bl[4] := sh;
-   Pieces[4] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
    InitShape(Empty);
    {
         # #
@@ -268,7 +293,8 @@ begin
    sh[4,4] := Filled;
    bl[2] := sh;
    bl[4] := sh;
-   Pieces[5] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
    InitShape(Empty);
    {
      # #
@@ -292,7 +318,51 @@ begin
    sh[3,4] := Filled;
    bl[2] := sh;
    bl[4] := sh;
-   Pieces[6] := bl;
+   Pieces[n] := bl;
+   n := n + 1;
+   InitShape(Empty);
+   {
+     #
+     # # #
+   }
+   sh[2,4] := Filled;
+   sh[3,4] := Filled;
+   sh[4,4] := Filled;
+   sh[2,3] := Filled;
+   bl[1] := sh;
+   InitShape(Empty);
+   {
+      # #
+      #
+      #
+   }
+   sh[4,2] := Filled;
+   sh[3,2] := Filled;
+   sh[3,3] := Filled;
+   sh[3,4] := Filled;
+   bl[2] := sh;
+   InitShape(Empty);
+   {
+      # # #
+          #
+   }
+   sh[4,4] := Filled;
+   sh[2,3] := Filled;
+   sh[3,3] := Filled;
+   sh[4,3] := Filled;
+   bl[3] := sh;
+   InitShape(Empty);
+   {
+        #
+        #
+      # #
+   }
+   sh[4,2] := Filled;
+   sh[4,3] := Filled;
+   sh[4,4] := Filled;
+   sh[3,4] := Filled;
+   bl[4] := sh;
+   Pieces[n] := bl;
 end;
 
 {
@@ -336,8 +406,9 @@ end;
   ---------------------------------------------------------
 }
 procedure InitGame;
-var xx,x1,x2,x3,x4,x5 : Integer;
+   var x1,x2 : Integer;
 begin
+   Score := 0;
    InitAllShapes;
    for x1:=1 to ScWidth do
       for x2:=1 to ScHeight do
@@ -347,34 +418,14 @@ begin
    Randomize;
    Key := 'r';
    ValidKey := False;
+   Freeze := False;
    ClrScr;
    DrawBox(ScCol, ScRow, ScWidth, ScHeight);
-   { Show all pieces - this will be removed in final version }
-   xx := ScWidth; x1 := 4; x2 := 8; x3 := 12; x4 := 16; x5 := 20;
-   DispBlock(xx+x1, 1, 1, 1, False);
-   DispBlock(xx+x1, 5, 1, 2, False);
-   DispBlock(xx+x1, 9, 2, 1, False);
-   DispBlock(xx+x1, 13, 3, 1, False);
-   DispBlock(xx+x2, 13, 3, 2, False);
-   DispBlock(xx+x3, 13, 3, 3, False);
-   DispBlock(xx+x4, 13, 3, 4, False);
-   DispBlock(xx+x2, 1, 4, 1, False);
-   DispBlock(xx+x3, 1, 4, 2, False);
-   DispBlock(xx+x4, 1, 4, 3, False);
-   DispBlock(xx+x5, 1, 4, 4, False);
-   DispBlock(xx+x2, 5, 5, 1, False);
-   DispBlock(xx+x3, 5, 5, 2, False);
-   DispBlock(xx+x4, 5, 5, 3, False);
-   DispBlock(xx+x5, 5, 5, 4, False);
-   DispBlock(xx+x2, 9, 6, 1, False);
-   DispBlock(xx+x3, 9, 6, 2, False);
-   DispBlock(xx+x4, 9, 6, 3, False);
-   DispBlock(xx+x5, 9, 6, 4, False);
    GotoXY(40, 18); write(':/; - move left/right');
    GotoXY(40, 19); write(',/. - rotate left/right');
-   GotoXY(40, 20); write('  @ - start over');
+   GotoXY(40, 20); write('  @ - pause/resume');
    GotoXY(40, 21); write('  E - end');
-   { Add 1st piece to the scene. }
+   { Spawn 1st piece. }
    New(NewBlk);
    CurrBlk := NewBlk;
    if CurrBlk <> nil then
@@ -385,8 +436,8 @@ begin
         PrevCol := Col;
         PrevRow := Row;
         Repaint := True;
-        ShNum := Random(6) + 1;
-        SeqNum := Random(4) + 1;
+        ShNum := Random(7) + 1;  {random shape 1..7}
+        SeqNum := Random(4) + 1; {random orientation / sequence 1..4}
         PrevSeqNum := -1;
       end;
    NewBlk := nil;
@@ -410,6 +461,69 @@ end;
 
 {
   ---------------------------------------------------------
+  Function checks if piece can be moved to the right.
+  ---------------------------------------------------------
+}
+function CanMoveRight(prow, pcol, sn, rn : Integer) : Boolean;
+var
+   fret     : Boolean;
+   cf       : Boolean; { is any row in column filled? }
+   k        : Integer; { index - how far to the right piece is filled }
+   row, col : Integer; { piece matrix indexes }
+begin
+   fret := False;
+   k := 3;
+   bl := Pieces[sn];
+   sh := bl[rn];
+   for col := 4 to 1 do
+   begin
+      row := 1;
+      cf := False;
+      while (row < 5) and (cf = False) do
+      begin
+         if sh[col, row] = Filled then cf := True;
+         row := row + 1;
+      end;
+      if cf = False then k := k - 1;
+   end;
+   if (pcol + k) < (ScCol + ScWidth) then fret := True;
+
+   CanMoveRight := fret;
+end;
+
+{
+  ---------------------------------------------------------
+  Function checks if piece can be moved to the left.
+  ---------------------------------------------------------
+}
+function CanMoveLeft(prow, pcol, sn, rn : Integer) : Boolean;
+var
+   fret     : Boolean;
+   k        : Integer;
+   col, row : Integer;
+   cf       : Boolean;
+begin
+   fret := False;
+   k := 0;
+   bl := Pieces[sn];
+   sh := bl[rn];
+   for col := 1 to 4 do
+   begin
+      row := 1;
+      cf := False;
+      while (row < 5) and (cf = False) do
+      begin
+         if sh[col, row] = Filled then cf := True;
+         row := row + 1;
+      end;
+      if cf = False then k := k + 1;
+   end;
+   if (pcol + k) > (ScCol + 1) then fret := True;
+   CanMoveLeft := fret;
+end;
+
+{
+  ---------------------------------------------------------
    Function checks if piece can descent one step lower.
    NOTE: In current form this function will not produce
          correct outcome with multiple pieces on the scene.
@@ -425,7 +539,7 @@ end;
 function CanGoLower(blkptr : PtrBlkInfo) : Boolean;
 var
    fret   : Boolean;
-   i      : Integer;
+   i,j    : Integer;
    prow   : Integer;
    pcol   : Integer;
 begin
@@ -443,12 +557,15 @@ begin
    { remaining pieces on the Scene (Bucket). }
    if fret = True then
    begin
-      { need smart code here to check collisions with the Scene pieces }
-      for i:=1 to 4 do
-      begin
-         if (Bucket[pcol+i-1,prow+3] = Filled) and (sh[i,4] = Filled) then
-            fret := False;
-      end;
+      { check collisions with the Filled blocks on the Scene / Bucket }
+      for i:=0 to 3 do
+         for j:=0 to 3 do
+         begin
+            if (Bucket[pcol+i-ScCol-1+1,prow+j+1-ScRow+1] = Filled)
+                and
+                (sh[i+1,j+1] = Filled) then
+               fret := False;
+         end;
    end;
    CanGoLower := fret;
 end;
@@ -480,13 +597,13 @@ begin
   if Blk <> nil then
      with Blk^ do
      begin
-        if Repaint = True then
+        if (Repaint = True) and (Freeze = False) then
         begin
            if PrevSeqNum > 0 then
-              DispBlock(PrevCol,PrevRow,ShNum,PrevSeqNum,True)
+              DispBlock(PrevCol,PrevRow,ShNum,PrevSeqNum,True,True)
            else
-              DispBlock(PrevCol,PrevRow,ShNum,SeqNum,True);
-           DispBlock(Col,Row,ShNum,SeqNum,False);
+              DispBlock(PrevCol,PrevRow,ShNum,SeqNum,True,True);
+           DispBlock(Col,Row,ShNum,SeqNum,False,True);
            PrevCol := Col;
            PrevRow := Row;
            PrevSeqNum := -1;
@@ -494,11 +611,11 @@ begin
         end;
      end;
 
+  { if new piece was created in previous step, dispose of CurrBlk and }
+  { replace it with the new piece                                     }
+
   if NewBlk <> nil then
   begin
-
-     { dispose of CurrBlk and replace it with new piece }
-
      Dispose(CurrBlk);
      CurrBlk := NewBlk;
      NewBlk := nil;
@@ -507,9 +624,11 @@ begin
 
   { perform block rotation }
 
-  if Blk <> nil then
+  if (Blk <> nil) and (Freeze = False) then
      with Blk^ do
      begin
+
+        { rotate +90 degrees }
 
         if ValidKey and (Key = '.') then
         begin
@@ -524,6 +643,8 @@ begin
               end;
            end;
         end;
+
+        { rotate -90 degrees }
 
         if ValidKey and (Key = ',') then
         begin
@@ -541,24 +662,28 @@ begin
 
      end;
 
-  { perform block falling down and movement }
+  { perform block falling down and left / right movement }
 
-  if Blk <> nil then
+  if (Blk <> nil) and (Freeze = False) then
      with Blk^ do
      begin
 
+        { move right }
+
         if ValidKey and (Key = ';') then
         begin
-           if (Col + 3) < (ScCol + 1 + ScWidth) then
+           if CanMoveRight(Row, Col, ShNum, SeqNum) = True then
            begin
               Col := Col + 1;
               Repaint := True;
            end;
         end;
 
+        { move left }
+
         if ValidKey and (Key = ':') then
         begin
-           if Col > ScCol + 1 then
+           if CanMoveLeft(Row, Col, ShNum, SeqNum) = True then
            begin
               Col := Col - 1;
               Repaint := True;
@@ -570,37 +695,45 @@ begin
            Row := Row + 1;
            Repaint := True;
         end
-        else { if piece can't go lower, map it to the scene }
+        else { if piece can't go lower, map it to the scene and create new piece }
         begin
            bl := Pieces[ShNum];
            sh := bl[SeqNum];
            for i:=1 to 4 do
               for j:=1 to 4 do
               begin
-                 if ((Col+j-1-ScCol) <= ScWidth) and ((Row+i-1-ScRow) <= ScHeight) then
-                    Bucket[Col+j-1,Row+i-1] := sh[j,i];
+                 if ((Col+j-1-ScCol-1+1) <= ScWidth) and ((Row+i-1-ScRow+1) <= ScHeight) then
+                    if ((Col+j-1-ScCol-1+1) > 0) and ((Row+i-1-ScRow+1) > 0) then
+                       if sh[j,i] = Filled then
+                          Bucket[Col+j-1-ScCol-1+1,Row+i-1-ScRow+1] := Filled;
               end;
+              New(NewBlk);
+              if NewBlk <> nil then
+                 with NewBlk^ do
+                 begin
+                    Col := ScCol + 1 + Random(ScWidth - 4);
+                    Row := ScRow;
+                    PrevRow := Row;
+                    PrevCol := Col;
+                    ShNum := Random(7) + 1;
+                    SeqNum := Random(4) + 1;
+                    Repaint := True;
+                    PrevSeqNum := -1;
+                 end;
         end;
 
-    { Code block below added for demo purpose and will be removed from final }
-    { version (or altered - new pieces will be created automatically.) }
+    end;
 
-       if ValidKey and (Key = '@') and (NewBlk = nil) then
-       begin
-          New(NewBlk);
-          if NewBlk <> nil then
-          with NewBlk^ do
-          begin
-             Col := ScCol + 1 + Random(ScWidth - 4);
-             Row := ScRow;
-             PrevRow := Row;
-             PrevCol := Col;
-             ShNum := Random(6) + 1;
-             SeqNum := Random(4) + 1;
-             Repaint := True;
-             PrevSeqNum := -1;
-          end;
-       end;
+    { Code block below added for demo purpose and will be removed from final }
+    { version.                                                               }
+
+    if ValidKey and (Key = '@') then
+    begin
+       { toggle freeze flag }
+       if Freeze = True then
+          Freeze := False
+       else
+          Freeze := True;
     end;
 
 end;
@@ -660,4 +793,4 @@ begin
    ClrScr;
    writeln('Thank you for playing mktetris!');
 end.
-
+
