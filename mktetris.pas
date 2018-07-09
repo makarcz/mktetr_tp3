@@ -8,9 +8,10 @@ const { constant definitions }
    ScWidth   = 16;  {scene width}
    ScHeight  = 20;  {scene height}
    ScRow     = 1;   {scene left-upper corner coordinate (Y or Row)}
-   ScCol     = 1;   {scene left-upper corner coordinate (X or Col)}
-   FallSpeed = 5;   {determines the initial speed of falling piece}
-   RefrRate  = 50;  {determines how often the scene is refreshed}
+   { uncomment the constant below in final version }
+   {ScCol     = 1;}   {scene left-upper corner coordinate (X or Col)}
+   IntlSpd   = 50;  {initial # of frames to refresh falling piece}
+   RefrRate  = 1;   {determines delay in the loop while the scene is refreshed}
    NumOfPcs  = 7;   {number of pieces}
 
 type { type declarations }
@@ -43,6 +44,10 @@ type { type declarations }
 
 var { declare variables of the program }
 
+   FallSpeed:  Integer;   {# of frames to refresh falling piece / scene}
+   Frame:      Integer;   {frames counter}
+   { remove variable below in final version - it will be a constant }
+   ScCol:      Integer;   {scene X coordinate}
    Key:        Char;      {code of the key pressed by player}
    ValidKey:   Boolean;   {flag to validate the pressed key}
    sh:         Shape;
@@ -55,350 +60,9 @@ var { declare variables of the program }
    Bucket:     Scene;
    Freeze:     Boolean;    {pause / restore flag}
    Score:      Integer;
+   GameOver:   Boolean;
 
-{
-   -----------------------------------------------------------
-    Display or erase block.
-    x, y - screen coordinates (x (column): 1..40,
-                               y (row):    1..24)
-    sn - shape # (1..NumOfPcs)
-    rn - sequence/rotation # (1..4)
-    era - True: erase block/False: paint block.
-    cs - True: validate coordinates against scene boundaries
-   -----------------------------------------------------------
-}
-procedure DispBlock(x,y,sn,rn: Integer; era: Boolean; cs: Boolean);
-var
-   i,j:     Integer;
-   scv:     Boolean; { within scene coordinates }
-   col,row: Integer;
-begin
-   scv := False;
-   bl := Pieces[sn];
-   sh := bl[rn];
-   for i := 1 to 4 do
-   begin
-      for j := 1 to 4 do
-      begin
-         col := x * 2 + i * 2 - 4;
-         row := y + j - 1;
-         if cs = True then
-         begin
-            if (col > ScCol) and (col <= (ScCol + 1 + ScWidth * 2))
-               and
-               (row >= ScRow) and (row <= (ScRow + ScHeight))
-            then scv := True;
-         end
-         else scv := True;
-         if scv = True then
-         begin
-            GotoXY(col, row);
-            if sh[i,j] = Filled then
-            begin
-               if era = True then
-                  write('  ')
-               else
-               begin
-                  write(Chr(27)); { ESC code }
-                  write('G4  ');  { Reverse ON, space }
-                  write(Chr(27)); { ESC code }
-                  write('G0');    { Reverse OFF }
-               end;
-            end;
-         end;
-      end;
-   end;
-end;
-
-{
-   -----------------------------------------------------------
-    Init Shape Array.
-    v - Empty or Filled.
-   -----------------------------------------------------------
-}
-procedure InitShape(v: Cell);
-var
-   i,j: Integer; {column, row}
-begin
-   for i := 1 to 4 do
-   begin
-      for j:= 1 to 4 do
-      begin
-         sh[i,j] := v;
-      end;
-   end;
-end;
-
-{
-   -----------------------------------------------------------
-    Initialize All Shapes.
-    NOTE: Last row of shape matrix should have a filled cell.
-          The same with last column. Will make it easier to
-          check if piece can fall down or move right.
-   -----------------------------------------------------------
-}
-procedure InitAllShapes;
-var
-   n: Integer; {piece number}
-begin
-   n := 1;
-   InitShape(Empty);
-   {
-      #
-      #
-      #
-      #
-   }
-   sh[4,1] := Filled;
-   sh[4,2] := Filled;
-   sh[4,3] := Filled;
-   sh[4,4] := Filled;
-   bl[1] := sh;
-   InitShape(Empty);
-   {
-     # # # #
-   }
-   sh[1,4] := Filled;
-   sh[2,4] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[2] := sh;
-   bl[3] := bl[1];
-   bl[4] := bl[2];
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-     # #
-     # #
-   }
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[1] := sh;
-   bl[2] := sh;
-   bl[3] := sh;
-   bl[4] := sh;
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-       #
-     # # #
-   }
-   sh[3,3] := Filled;
-   sh[2,4] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[1] := sh;
-   InitShape(Empty);
-   {
-     #
-     # #
-     #
-   }
-   sh[3,2] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[3,4] := Filled;
-   bl[2] := sh;
-   InitShape(Empty);
-   {
-     # # #
-       #
-   }
-   sh[2,3] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[3,4] := Filled;
-   bl[3] := sh;
-   InitShape(Empty);
-   {
-       #
-     # #
-       #
-   }
-   sh[4,2] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[4,4] := Filled;
-   bl[4] := sh;
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-     # # #
-     #
-   }
-   sh[2,3] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[2,4] := Filled;
-   bl[1] := sh;
-   InitShape(Empty);
-   {
-      # #
-        #
-        #
-   }
-   sh[3,2] := Filled;
-   sh[4,2] := Filled;
-   sh[4,3] := Filled;
-   sh[4,4] := Filled;
-   bl[2] := sh;
-   InitShape(Empty);
-   {
-          #
-      # # #
-   }
-   sh[4,3] := Filled;
-   sh[2,4] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[3] := sh;
-   InitShape(Empty);
-   {
-      #
-      #
-      # #
-   }
-   sh[3,2] := Filled;
-   sh[3,3] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[4] := sh;
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-        # #
-      # #
-   }
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[2,4] := Filled;
-   sh[3,4] := Filled;
-   bl[1] := sh;
-   bl[3] := sh;
-   InitShape(Empty);
-   {
-     #
-     # #
-       #
-   }
-   sh[3,2] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[4,4] := Filled;
-   bl[2] := sh;
-   bl[4] := sh;
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-     # #
-       # #
-   }
-   sh[2,3] := Filled;
-   sh[3,3] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   bl[1] := sh;
-   bl[3] := sh;
-   InitShape(Empty);
-   {
-        #
-      # #
-      #
-   }
-   sh[4,2] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   sh[3,4] := Filled;
-   bl[2] := sh;
-   bl[4] := sh;
-   Pieces[n] := bl;
-   n := n + 1;
-   InitShape(Empty);
-   {
-     #
-     # # #
-   }
-   sh[2,4] := Filled;
-   sh[3,4] := Filled;
-   sh[4,4] := Filled;
-   sh[2,3] := Filled;
-   bl[1] := sh;
-   InitShape(Empty);
-   {
-      # #
-      #
-      #
-   }
-   sh[4,2] := Filled;
-   sh[3,2] := Filled;
-   sh[3,3] := Filled;
-   sh[3,4] := Filled;
-   bl[2] := sh;
-   InitShape(Empty);
-   {
-      # # #
-          #
-   }
-   sh[4,4] := Filled;
-   sh[2,3] := Filled;
-   sh[3,3] := Filled;
-   sh[4,3] := Filled;
-   bl[3] := sh;
-   InitShape(Empty);
-   {
-        #
-        #
-      # #
-   }
-   sh[4,2] := Filled;
-   sh[4,3] := Filled;
-   sh[4,4] := Filled;
-   sh[3,4] := Filled;
-   bl[4] := sh;
-   Pieces[n] := bl;
-end;
-
-{
-  -----------------------------------------------------------
-   Draw a box of defined dimensions at provided coordinates.
-  -----------------------------------------------------------
-}
-procedure DrawBox(x, y, width, height: Integer);
-var
-   i: Integer;
-begin
-   for i := y to y+height-1 do
-   begin
-      GotoXY(x, i);
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
-      {write(BoxVert);}
-      GotoXY(x+width*2+1, i);
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
-      {write(BoxVert);}
-   end;
-   GotoXY(x, y+height);
-   for i := 1 to width*2+2 do
-   begin
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
-      {write(BoxHoriz);}
-   end;
-end;
+{$I mktet01.pas}
 
 {
   ---------------------------------------------------------
@@ -408,7 +72,11 @@ end;
 procedure InitGame;
    var x1,x2 : Integer;
 begin
+   FallSpeed := IntlSpd;
+   Frame := 0;
    Score := 0;
+   ScCol := 1;
+   GameOver := False;
    InitAllShapes;
    for x1:=1 to ScWidth do
       for x2:=1 to ScHeight do
@@ -421,10 +89,12 @@ begin
    Freeze := False;
    ClrScr;
    DrawBox(ScCol, ScRow, ScWidth, ScHeight);
-   GotoXY(40, 18); write(':/; - move left/right');
-   GotoXY(40, 19); write(',/. - rotate left/right');
+   RefreshScore;
+   GotoXY(40, 17); write(':/; - move left/right');
+   GotoXY(40, 18); write(',/. - rotate left/right');
+   GotoXY(40, 19); write('  D - drop piece');
    GotoXY(40, 20); write('  @ - pause/resume');
-   GotoXY(40, 21); write('  E - end');
+   GotoXY(40, 21); write('  E - exit');
    { Spawn 1st piece. }
    New(NewBlk);
    CurrBlk := NewBlk;
@@ -487,6 +157,20 @@ begin
       if cf = False then k := k - 1;
    end;
    if (pcol + k) < (ScCol + ScWidth) then fret := True;
+   if fret = True then
+   begin
+      row := prow - ScRow;
+      col := pcol - ScCol - 1;
+      if (col + 4) < ScWidth then
+         while (row < (prow - Scrow + 4)) and (fret = True) do
+         begin
+            if (Bucket[col + 4 + 1, row + 1] = Filled)
+               and
+               (sh[4,row - (prow - ScRow) + 1] = Filled)
+            then fret := False;
+            row := row + 1;
+         end;
+   end;
 
    CanMoveRight := fret;
 end;
@@ -519,6 +203,20 @@ begin
       if cf = False then k := k + 1;
    end;
    if (pcol + k) > (ScCol + 1) then fret := True;
+   if fret = True then
+   begin
+      row := prow - ScRow;
+      col := pcol + k - ScCol - 1;
+      if col > 1 then
+         while (row < (prow - Scrow + 4)) and (fret = True) do
+         begin
+            if (Bucket[col - 1, row + 1] = Filled)
+               and
+               (sh[1 + k, row - (prow - ScRow) + 1] = Filled)
+            then fret := False;
+            row := row + 1;
+         end;
+   end;
    CanMoveLeft := fret;
 end;
 
@@ -572,6 +270,51 @@ end;
 
 {
   ---------------------------------------------------------
+  Reduce filled lines on the scene. Update score.
+  ---------------------------------------------------------
+}
+procedure ReduceLines;
+var
+   PrevScore : Integer;
+   row, col  : Integer;
+   i, j      : Integer;
+   bonus     : Integer;
+   cont      : Boolean;
+begin
+   PrevScore := Score;
+   bonus := 20;
+
+   for row := 1 to ScHeight do
+   begin
+      col := 1;
+      cont := True;
+      while (col <= ScWidth) and (cont = True) do
+      begin
+         if Bucket[col,row] = Empty then cont := False
+         else col := col + 1;
+      end;
+      if cont = True then { filled row detected }
+      begin
+         Score := Score + bonus;
+         bonus := bonus * 2;
+         { reduce filled line and shift the scene contents }
+         for i := (row - 1) downto 1 do
+            for j := 1 to ScWidth do
+               Bucket[j,i+1] := Bucket[j,i];
+         for j := 1 to ScWidth do Bucket[j,1] := Empty;
+      end;
+   end;
+
+   if bonus > 20 then
+   begin
+      RepaintBucket;
+      if FallSpeed > 0 then FallSpeed := FallSpeed - 1;
+   end;
+   if Score <> PrevScore then RefreshScore;
+end;
+
+{
+  ---------------------------------------------------------
    Update scene.
    TO DO:
          Must add code to check if the piece can be
@@ -585,8 +328,9 @@ end;
 }
 procedure UpdScene;
 var
-  Blk:        PtrBlkInfo;
-  i, j:       Integer;
+  Blk:            PtrBlkInfo;
+  i, j:           Integer;
+  bktcol, bktrow: Integer;
 
 begin
 
@@ -690,6 +434,23 @@ begin
            end;
         end;
 
+        { drop }
+
+        if ValidKey and (Key = 'd') then
+        begin
+           while CanGoLower(Blk) do
+           begin
+              Row := Row + 1;
+              if (Freeze = False) then
+              begin
+                 DispBlock(PrevCol,PrevRow,ShNum,SeqNum,True,True);
+                 DispBlock(Col,Row,ShNum,SeqNum,False,True);
+                 PrevCol := Col;
+                 PrevRow := Row;
+              end;
+           end;
+        end;
+
         if CanGoLower(Blk) = True then
         begin
            Row := Row + 1;
@@ -702,38 +463,52 @@ begin
            for i:=1 to 4 do
               for j:=1 to 4 do
               begin
-                 if ((Col+j-1-ScCol-1+1) <= ScWidth) and ((Row+i-1-ScRow+1) <= ScHeight) then
-                    if ((Col+j-1-ScCol-1+1) > 0) and ((Row+i-1-ScRow+1) > 0) then
+                 bktcol := Col + j - 1 - ScCol - 1 + 1;
+                 bktrow := Row + i - 1 - ScRow + 1;
+                 if (bktcol <= ScWidth) and (bktrow <= ScHeight) then
+                    if (bktcol > 0) and (bktrow > 0) then
                        if sh[j,i] = Filled then
-                          Bucket[Col+j-1-ScCol-1+1,Row+i-1-ScRow+1] := Filled;
+                       begin
+                          {if Bucket[bktcol,bktrow] = Empty then}
+                          if Row > ScRow then
+                             Bucket[bktcol,bktrow] := Filled
+                          else GameOver := True;
+                       end;
               end;
-              New(NewBlk);
-              if NewBlk <> nil then
-                 with NewBlk^ do
-                 begin
-                    Col := ScCol + 1 + Random(ScWidth - 4);
-                    Row := ScRow;
-                    PrevRow := Row;
-                    PrevCol := Col;
-                    ShNum := Random(7) + 1;
-                    SeqNum := Random(4) + 1;
-                    Repaint := True;
-                    PrevSeqNum := -1;
-                 end;
+           if GameOver = True then Exit;
+           ReduceLines; { reduce filled lines, update score }
+           New(NewBlk);
+           if NewBlk <> nil then
+              with NewBlk^ do
+              begin
+                 Col := ScCol + 1 + Random(ScWidth - 4);
+                 Row := ScRow;
+                 PrevRow := Row;
+                 PrevCol := Col;
+                 ShNum := Random(7) + 1;
+                 SeqNum := Random(4) + 1;
+                 Repaint := True;
+                 PrevSeqNum := -1;
+              end;
         end;
 
     end;
-
-    { Code block below added for demo purpose and will be removed from final }
-    { version.                                                               }
 
     if ValidKey and (Key = '@') then
     begin
        { toggle freeze flag }
        if Freeze = True then
-          Freeze := False
+       begin
+          Freeze := False;
+          GotoXY(ScWidth * 2 + 5, 10);
+          write('           ');
+       end
        else
+       begin
           Freeze := True;
+          GotoXY(ScWidth * 2 + 5, 10);
+          write('GAME PAUSED');
+       end;
     end;
 
 end;
@@ -741,16 +516,18 @@ end;
 {
  ---------------------------------------------------------
   Get input from player (keyboard).
+  Previous key must be consumed before new read is
+  allowed.
  ---------------------------------------------------------
 }
 procedure GetInput;
 begin
-   if KeyPressed then
+   if (ValidKey = False) and KeyPressed then
    begin
       Read(Kbd,Key);
       ValidKey := True;
-   end
-   else ValidKey := False;
+   end;
+   {else ValidKey := False;}
 end;
 
 {
@@ -777,6 +554,7 @@ begin
       GotoXY(40, 22);
       for i := 1 to 20 do write(' ');
    end;
+   Ret := Ret or GameOver;
    GameEnd := Ret;
 end;
 
@@ -784,13 +562,38 @@ end;
 
 begin
    InitGame;
-   while not GameEnd do
+   while ((not GameEnd) and (not GameOver)) do
    begin
-      UpdScene;
+      if (Frame mod FallSpeed) = 0 then
+      begin
+         UpdScene;
+         if Frame > 30000 then Frame := 0;
+         ValidKey := False;
+      end;
+      if GameOver then
+      begin
+         GotoXY(ScWidth * 2 + 5, 10);
+         write('*** G A M E   O V E R ***');
+         GotoXY(ScWidth * 2 + 5, 12);
+         write('Play again? (Y/N)');
+         Key := 'r';
+         while ((Key <> 'y') and (Key <> 'n')) do
+         begin
+            repeat until KeyPressed;
+            Read(Kbd, Key);
+         end;
+         if Key = 'y' then
+         begin
+            Dispose(CurrBlk);
+            InitGame;
+         end;
+      end;
       GetInput;
       Delay(RefrRate);
+      Frame := Frame + 1;
    end;
    ClrScr;
    writeln('Thank you for playing mktetris!');
+   writeln;
 end.
-
+
