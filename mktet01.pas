@@ -1,4 +1,14 @@
-
+{
+   -----------------------------------------------------------
+   Project: MKTRIS
+            Tetris-like game / Tetris clone.
+   File:    mktet01.pas
+   Purpose: Functions definitions for game initialization and
+            presentation layer.
+   Author:  Copyright (C) by Marek Karcz 2016-2018.
+            All rights reserved.
+   -----------------------------------------------------------
+}
 {
    -----------------------------------------------------------
     Display or erase block.
@@ -43,10 +53,11 @@ begin
                   write('  ')
                else
                begin
-                  write(Chr(27)); { ESC code }
-                  write('G4  ');  { Reverse ON, space }
-                  write(Chr(27)); { ESC code }
-                  write('G0');    { Reverse OFF }
+                  {write(Chr(27));} { ESC code }
+                  {write('G4  ');}  { Reverse ON, space }
+                  {write(Chr(27));} { ESC code }
+                  {write('G0');}    { Reverse OFF }
+                  write('[]');
                end;
             end;
          end;
@@ -72,10 +83,11 @@ begin
       begin
          if Bucket[x,y] = Filled then
          begin
-            write(Chr(27)); { ESC code }
-            write('G4  ');  { Reverse ON, space }
-            write(Chr(27)); { ESC code }
-            write('G0');    { Reverse OFF }
+            {write(Chr(27));} { ESC code }
+            {write('G4  ');}  { Reverse ON, space }
+            {write(Chr(27));} { ESC code }
+            {write('G0');}    { Reverse OFF }
+            write('[]');
          end
          else write('  ');
       end;
@@ -339,7 +351,8 @@ end;
 
 {
   -----------------------------------------------------------
-   Draw a box of defined dimensions at provided coordinates.
+   Draw an open U-shaped box of defined dimensions at
+   provided coordinates.
   -----------------------------------------------------------
 }
 procedure DrawBox(x, y, width, height: Integer);
@@ -379,7 +392,7 @@ end;
 }
 procedure RefreshScore;
 begin
-   GotoXY(40, 1);  write('Score: ', Score);
+   GotoXY(InfoCol, 1);  write('Score: ', Score);
 end;
 
-
+

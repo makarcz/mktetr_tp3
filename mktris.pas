@@ -1,16 +1,26 @@
 {$C-}
-program mktetris(input,output);
+program mktris(input,output);
 
-{ TETRIS clone, TP3, CP/M 3 (C128) by Marek Karcz 2016-2018 }
+{
+   ----------------------------------------------------------------------
+   Project: MKTRIS
+            Tetris-like game / Tetris clone.
+   File:    mktris.pas
+   Purpose: Main source code file. Game logic. Main game loop.
+   Author:  Copyright (C) by Marek Karcz 2016-2018.
+            All rights reserved.
+   ----------------------------------------------------------------------
+}
 
 const { constant definitions }
 
-   ScWidth   = 16;  {scene width}
-   ScHeight  = 20;  {scene height}
+   ScWidth   = 10;  {scene width}
+   InfoCol   = 25;  {column where info texts start}
+   ScHeight  = 23;  {scene height}
    ScRow     = 1;   {scene left-upper corner coordinate (Y or Row)}
    { uncomment the constant below in final version }
    {ScCol     = 1;}   {scene left-upper corner coordinate (X or Col)}
-   IntlSpd   = 50;  {initial # of frames to refresh falling piece}
+   IntlSpd   = 75;  {initial # of frames to refresh falling piece}
    RefrRate  = 1;   {determines delay in the loop while the scene is refreshed}
    NumOfPcs  = 7;   {number of pieces}
 
@@ -90,11 +100,14 @@ begin
    ClrScr;
    DrawBox(ScCol, ScRow, ScWidth, ScHeight);
    RefreshScore;
-   GotoXY(40, 17); write(':/; - move left/right');
-   GotoXY(40, 18); write(',/. - rotate left/right');
-   GotoXY(40, 19); write('  D - drop piece');
-   GotoXY(40, 20); write('  @ - pause/resume');
-   GotoXY(40, 21); write('  E - exit');
+   GotoXY(InfoCol, 15); write('MKTRIS Copyright (C) by Marek Karcz 2016-2018.');
+   GotoXY(InfoCol+12, 16); write('All rights reserved.');
+   GotoXY(InfoCol, 18); write('<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>');
+   GotoXY(InfoCol+8, 20); write('< > - move left/right');
+   GotoXY(InfoCol+8, 21); write('A Z - rotate left/right');
+   GotoXY(InfoCol+8, 22); write('  X - drop piece');
+   GotoXY(InfoCol+8, 23); write('  @ - pause/resume');
+   GotoXY(InfoCol+8, 24); write('  E - exit');
    { Spawn 1st piece. }
    New(NewBlk);
    CurrBlk := NewBlk;
@@ -111,22 +124,6 @@ begin
         PrevSeqNum := -1;
       end;
    NewBlk := nil;
-end;
-
-{
-  ---------------------------------------------------------
-  Function checks if piece can be rotated.
-  TO DO:
-     Implement function.
-  ---------------------------------------------------------
-}
-function CanRotate(prow, pcol, sn, rn : Integer; rright : Boolean) : Boolean;
-var
-   fret : Boolean;
-begin
-   fret := True;
-   { write code to implement this function }
-   CanRotate := fret;
 end;
 
 {
@@ -222,16 +219,58 @@ end;
 
 {
   ---------------------------------------------------------
+  Function checks if piece can be rotated.
+  ---------------------------------------------------------
+}
+function CanRotate(prow, pcol, sn, rn : Integer; rright : Boolean) : Boolean;
+var
+   fret     : Boolean;
+   rot      : Integer;
+   col, row : Integer;
+   c, r     : Integer;
+begin
+   rot := rn;
+   if rright then
+   begin
+      rot := rot + 1;
+      if rot > 4 then rot := 1;
+   end
+   else
+   begin
+      rot := rot - 1;
+      if rot < 1 then rot := 4;
+   end;
+   bl := Pieces[sn];
+   sh := bl[rot];
+   sh2 := bl[rn];
+   fret := True;
+   for c := 1 to 4 do
+   begin
+      col := pcol - ScCol + c - 1;
+      for r := 1 to 4 do
+      begin
+         row := prow - ScRow + r;
+         if (row > 0) and (row < ScHeight)
+            and (col > 0) and (col < ScWidth) then
+         begin
+            if sh2[c, r] = Empty then
+            begin
+               if (sh[c, r] = Filled)
+                   and (Bucket[col, row] = Filled) then fret := False;
+            end;
+         end
+         else
+         begin
+            if sh[c, r] = Filled then fret := False;
+         end;
+      end;
+   end;
+   CanRotate := fret;
+end;
+
+{
+  ---------------------------------------------------------
    Function checks if piece can descent one step lower.
-   NOTE: In current form this function will not produce
-         correct outcome with multiple pieces on the scene.
-         It just checks if the piece can fall any lower
-         (is clear of the bottom of the scene) with no
-         consideration for other pieces.
-   TO DO:
-         Must add code checking if the piece is clear of
-         other pieces on the bottom side.
-         (the Scene / Bucket)
   ---------------------------------------------------------
 }
 function CanGoLower(blkptr : PtrBlkInfo) : Boolean;
@@ -308,7 +347,8 @@ begin
    if bonus > 20 then
    begin
       RepaintBucket;
-      if FallSpeed > 0 then FallSpeed := FallSpeed - 1;
+      { increase falling speed, bacause player seems to be good at it }
+      if (FallSpeed - 5) > 0 then FallSpeed := FallSpeed - 5;
    end;
    if Score <> PrevScore then RefreshScore;
 end;
@@ -316,14 +356,6 @@ end;
 {
   ---------------------------------------------------------
    Update scene.
-   TO DO:
-         Must add code to check if the piece can be
-         rotated. This includes checking if the piece is
-         not obstructed before it can be rotated by the
-         boundaries of the scene and by other pieces.
-         I will likely implement by adding function
-         CanRotate() similar to CanGoLower() and using it
-         before rotating the piece.
   ---------------------------------------------------------
 }
 procedure UpdScene;
@@ -374,7 +406,7 @@ begin
 
         { rotate +90 degrees }
 
-        if ValidKey and (Key = '.') then
+        if ValidKey and (Key = 'z') then
         begin
            if CanGoLower(Blk) = True then
            begin
@@ -390,7 +422,7 @@ begin
 
         { rotate -90 degrees }
 
-        if ValidKey and (Key = ',') then
+        if ValidKey and (Key = 'a') then
         begin
            if CanGoLower(Blk) = True then
            begin
@@ -414,7 +446,7 @@ begin
 
         { move right }
 
-        if ValidKey and (Key = ';') then
+        if ValidKey and (Key = '.') then
         begin
            if CanMoveRight(Row, Col, ShNum, SeqNum) = True then
            begin
@@ -425,7 +457,7 @@ begin
 
         { move left }
 
-        if ValidKey and (Key = ':') then
+        if ValidKey and (Key = ',') then
         begin
            if CanMoveLeft(Row, Col, ShNum, SeqNum) = True then
            begin
@@ -436,7 +468,7 @@ begin
 
         { drop }
 
-        if ValidKey and (Key = 'd') then
+        if ValidKey and (Key = 'x') then
         begin
            while CanGoLower(Blk) do
            begin
@@ -500,13 +532,13 @@ begin
        if Freeze = True then
        begin
           Freeze := False;
-          GotoXY(ScWidth * 2 + 5, 10);
+          GotoXY(InfoCol, 10);
           write('           ');
        end
        else
        begin
           Freeze := True;
-          GotoXY(ScWidth * 2 + 5, 10);
+          GotoXY(InfoCol, 10);
           write('GAME PAUSED');
        end;
     end;
@@ -521,13 +553,23 @@ end;
  ---------------------------------------------------------
 }
 procedure GetInput;
+var
+   LocKey: Char;
+   KPress: Boolean;
 begin
-   if (ValidKey = False) and KeyPressed then
+   LocKey := 'r'; { undefined }
+   KPress := False;
+   { always consume HW keyboard key }
+   if KeyPressed then
    begin
-      Read(Kbd,Key);
+      Read(Kbd,LocKey);
+      KPress := True;
+   end;
+   if (ValidKey = False) and KPress then
+   begin
+      Key := LocKey;
       ValidKey := True;
    end;
-   {else ValidKey := False;}
 end;
 
 {
@@ -543,7 +585,7 @@ begin
    Ret := False;
    if ValidKey and (Key = 'e') then
    begin
-      GotoXY(40, 22);
+      GotoXY(InfoCol, 12);
       write('Are you sure (Y/N)?');
       repeat until KeyPressed;
       Read(Kbd, Key);
@@ -551,7 +593,7 @@ begin
       begin
          Ret := True;
       end;
-      GotoXY(40, 22);
+      GotoXY(InfoCol, 12);
       for i := 1 to 20 do write(' ');
    end;
    Ret := Ret or GameOver;
@@ -572,9 +614,9 @@ begin
       end;
       if GameOver then
       begin
-         GotoXY(ScWidth * 2 + 5, 10);
+         GotoXY(InfoCol, 10);
          write('*** G A M E   O V E R ***');
-         GotoXY(ScWidth * 2 + 5, 12);
+         GotoXY(InfoCol, 12);
          write('Play again? (Y/N)');
          Key := 'r';
          while ((Key <> 'y') and (Key <> 'n')) do
@@ -596,4 +638,4 @@ begin
    writeln('Thank you for playing mktetris!');
    writeln;
 end.
-
+
