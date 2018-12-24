@@ -23,6 +23,7 @@ const { constant definitions }
    IntlSpd   = 75;  {initial # of frames to refresh falling piece}
    RefrRate  = 1;   {determines delay in the loop while the scene is refreshed}
    NumOfPcs  = 7;   {number of pieces}
+   HiScFName = 'mktrishs.dat'; {hi-score file name}
 
 type { type declarations }
 
@@ -52,25 +53,45 @@ type { type declarations }
 
              end;
 
+   PlName = string[20];
+
+   HiScore = record { keeps information about player's score }
+
+                PlrName: PlName;
+                Score:   Integer;
+
+             end;
+
+   HiScoreTbl = array[1..5] of HiScore;
+
 var { declare variables of the program }
 
-   FallSpeed:  Integer;   {# of frames to refresh falling piece / scene}
-   Frame:      Integer;   {frames counter}
+   FallSpeed:   Integer;   {# of frames to refresh falling piece / scene}
+   Frame:       Integer;   {frames counter}
    { remove variable below in final version - it will be a constant }
-   ScCol:      Integer;   {scene X coordinate}
-   Key:        Char;      {code of the key pressed by player}
-   ValidKey:   Boolean;   {flag to validate the pressed key}
-   sh:         Shape;
-   sh2:        Shape;
-   bl:         Block;
-   bl2:        Block;
-   Pieces:     All;
-   CurrBlk:    PtrBlkInfo; {pointer to current block}
-   NewBlk:     PtrBlkInfo; {pointer to new block - temporary}
-   Bucket:     Scene;
-   Freeze:     Boolean;    {pause / restore flag}
-   Score:      Integer;
-   GameOver:   Boolean;
+   ScCol:       Integer;   {scene X coordinate}
+   Key:         Char;      {code of the key pressed by player}
+   ValidKey:    Boolean;   {flag to validate the pressed key}
+   sh:          Shape;
+   sh2:         Shape;
+   bl:          Block;
+   bl2:         Block;
+   Pieces:      All;
+   CurrBlk:     PtrBlkInfo; {pointer to current block}
+   NewBlk:      PtrBlkInfo; {pointer to new block - temporary}
+   Bucket:      Scene;
+   Freeze:      Boolean;    {pause / restore flag}
+   Score:       Integer;
+   {HiScore:     Integer;}
+   HiScoreRec:  HiScore;
+   HiScTbl:     HiScoreTbl;
+   GameOver:    Boolean;
+   {HiScoreFile: file of Integer;}
+   HiScoreFile: file of HiScore;
+   Pretty:      Boolean;
+   SolidBlocks: Boolean;
+   PlayerName:  PlName;
+   i:           Integer;
 
 {$I mktet01.pas}
 
@@ -82,9 +103,21 @@ var { declare variables of the program }
 procedure InitGame;
    var x1,x2 : Integer;
 begin
+
    FallSpeed := IntlSpd;
    Frame := 0;
    Score := 0;
+   {HiScore := ReadHiScore;}
+   for i:= 1 to 5 do
+   begin
+      with HiScTbl[i] do
+      begin
+         PlrName := 'PLAYER ONE';
+         Score := 0;
+      end;
+   end;
+   ReadHiScore;
+   HiScoreRec := HiScTbl[1];
    ScCol := 1;
    GameOver := False;
    InitAllShapes;
@@ -100,9 +133,22 @@ begin
    ClrScr;
    DrawBox(ScCol, ScRow, ScWidth, ScHeight);
    RefreshScore;
+   { list hi-score records on the screen }
+   for i := 1 to 5 do
+   begin
+      GotoXY(InfoCol, i+2);
+      write(i, '. ');
+      with HiScTbl[i] do
+      begin
+         GotoXY(InfoCol+4, i+2);
+         write(PlrName);
+         GotoXY(InfoCol+30, i+2);
+         write(Score);
+      end;
+   end;
    GotoXY(InfoCol, 15); write('MKTRIS Copyright (C) by Marek Karcz 2016-2018.');
    GotoXY(InfoCol+12, 16); write('All rights reserved.');
-   GotoXY(InfoCol, 18); write('<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>');
+   {GotoXY(InfoCol, 18); write('<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>');}
    GotoXY(InfoCol+8, 20); write('< > - move left/right');
    GotoXY(InfoCol+8, 21); write('A Z - rotate left/right');
    GotoXY(InfoCol+8, 22); write('  X - drop piece');
@@ -600,9 +646,78 @@ begin
    GameEnd := Ret;
 end;
 
+{
+   ------------------------------------------------------------------
+   Shift contents of hi-score table down and put new hi score on top.
+   ------------------------------------------------------------------
+}
+
+procedure ShftScoreTbl(pn: PlName; scre: Integer);
+var
+   i: Integer;
+   {n: PlName;
+   s: Integer;}
+begin
+   for i := 5 downto 2 do
+   begin
+      HiScTbl[i] := HiScTbl[i-1];
+      {
+      with HiScTbl[i-1] do
+      begin
+         n := PlrName;
+         s := Score;
+      end;
+      with HiScTbl[i] do
+      begin
+         PlrName := n;
+         Score := s;
+      end;
+      }
+   end;
+   with HiScTbl[1] do
+   begin
+      PlrName := pn;
+      Score := scre;
+   end;
+end;
+
 { --------------------- MAIN PROGRAM ---------------- }
 
 begin
+
+   Pretty := False;
+   SolidBlocks := False;
+   PlayerName := 'PLAYER ONE';
+   writeln('Welcome to MKTRIS.');
+   if ParamCount > 0 then
+   begin
+      for i := 1 to ParamCount do
+      begin
+         if ParamStr(i) = '-P' then Pretty := True
+         else
+         begin
+            if ParamStr(i) = '-S' then SolidBlocks := True
+            else
+               PlayerName := ParamStr(i);
+         end;
+      end;
+   end
+   else
+   begin
+      writeln('MKTRIS usage:');
+      writeln('   mktris [PlayerName] {[-p] [-s]}');
+      writeln('Only on C-128 or platform that supports ADM31 terminal codes:');
+      writeln('  -p - use solid (reverse color) lines to paint scene');
+      writeln('  -s - use solid (reverse color) lines to paint blocks');
+   end;
+   if PlayerName = 'PLAYER ONE' then
+   begin
+      write('Please enter your name: ');
+      readln(PlayerName);
+   end;
+   writeln('Hello ', PlayerName, '!');
+   writeln('Have fun!');
+   Delay(2000);
    InitGame;
    while ((not GameEnd) and (not GameOver)) do
    begin
@@ -614,8 +729,29 @@ begin
       end;
       if GameOver then
       begin
+         i := Score;
+         with HiScTbl[1] do
+         begin
+            if i > Score then
+            begin
+               with HiScoreRec do
+               begin
+                  PlrName := PlayerName;
+                  Score := i;
+               end;
+               GotoXY(InfoCol, 11);
+               write('Updating hi-score file...');
+               ShftScoreTbl(PlayerName, i);
+               WriteHiScore;
+               GotoXY(InfoCol, 11);
+               write('                         ');
+            end;
+         end;
+         {if Score > HiScore then WriteHiScore(Score);}
          GotoXY(InfoCol, 10);
+         if Pretty then write(Chr(27), 'G2');
          write('*** G A M E   O V E R ***');
+         if Pretty then write(Chr(27), 'G0');
          GotoXY(InfoCol, 12);
          write('Play again? (Y/N)');
          Key := 'r';
@@ -635,7 +771,7 @@ begin
       Frame := Frame + 1;
    end;
    ClrScr;
-   writeln('Thank you for playing mktetris!');
+   writeln('Thank you for playing!');
    writeln;
 end.
-
+

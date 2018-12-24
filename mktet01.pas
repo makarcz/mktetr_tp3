@@ -9,6 +9,59 @@
             All rights reserved.
    -----------------------------------------------------------
 }
+
+{
+   -----------------------------------------------------------
+   Write hi-score table with hihest score player on top.
+   This file is updated with a new value every time the new
+   score is grater than the one currently on file when game
+   ends.
+   -----------------------------------------------------------
+}
+procedure WriteHiScore;
+var
+   i: Integer;
+begin
+   Assign(HiScoreFile, HiScFname);
+   Rewrite(HiScoreFile);
+   for i := 1 to 5 do
+   begin
+      Write(HiScoreFile, HiScTbl[i]);
+   end;
+   {Write(HiScoreFile, score);}
+   Close(HiScoreFile);
+end;
+
+{
+   -----------------------------------------------------------
+   Read scores from a hi-score file.
+   -----------------------------------------------------------
+}
+procedure ReadHiScore;
+var
+   {score : Integer;}
+   iook  : Boolean;
+   i     : Integer;
+begin
+   {score := 0;}
+   Assign(HiScoreFile, HiScFName);
+   {$I-} Reset(HiScoreFile) {$I+} ;
+   iook := (IOresult = 0);
+   if not iook then { hi-score file doesn't exist, write one }
+   begin
+      WriteHiScore;
+      Assign(HiScoreFile, HiScFName);
+      Reset(HiScoreFile);
+   end;
+   for i := 1 to 5 do
+   begin
+      Read(HiScoreFile, HiScTbl[i]);
+   end;
+   {Read(HiScoreFile, score);}
+   Close(HiScoreFile);
+   {ReadHiScore := score;}
+end;
+
 {
    -----------------------------------------------------------
     Display or erase block.
@@ -53,11 +106,15 @@ begin
                   write('  ')
                else
                begin
-                  {write(Chr(27));} { ESC code }
-                  {write('G4  ');}  { Reverse ON, space }
-                  {write(Chr(27));} { ESC code }
-                  {write('G0');}    { Reverse OFF }
-                  write('[]');
+                  if SolidBlocks then
+                  begin
+                     write(Chr(27)); { ESC code }
+                     write('G4  ');  { Reverse ON, space }
+                     write(Chr(27)); { ESC code }
+                     write('G0');    { Reverse OFF }
+                  end
+                  else
+                     write('[]');
                end;
             end;
          end;
@@ -83,11 +140,15 @@ begin
       begin
          if Bucket[x,y] = Filled then
          begin
-            {write(Chr(27));} { ESC code }
-            {write('G4  ');}  { Reverse ON, space }
-            {write(Chr(27));} { ESC code }
-            {write('G0');}    { Reverse OFF }
-            write('[]');
+            if SolidBlocks then
+            begin
+               write(Chr(27)); { ESC code }
+               write('G4  ');  { Reverse ON, space }
+               write(Chr(27)); { ESC code }
+               write('G0');    { Reverse OFF }
+            end
+            else
+               write('[]');
          end
          else write('  ');
       end;
@@ -362,25 +423,40 @@ begin
    for i := y to y+height-1 do
    begin
       GotoXY(x, i);
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
+      if Pretty then
+      begin
+         write(Chr(27));
+         write('G4 ');
+         write(Chr(27));
+         write('G0');
+      end
+      else
+         write(')');
       {write(BoxVert);}
       GotoXY(x+width*2+1, i);
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
+      if Pretty then
+      begin
+         write(Chr(27));
+         write('G4 ');
+         write(Chr(27));
+         write('G0');
+      end
+      else
+         write('(');
       {write(BoxVert);}
    end;
    GotoXY(x, y+height);
    for i := 1 to width*2+2 do
    begin
-      write(Chr(27));
-      write('G4 ');
-      write(Chr(27));
-      write('G0');
+      if Pretty then
+      begin
+         write(Chr(27));
+         write('G4 ');
+         write(Chr(27));
+         write('G0');
+      end
+      else
+         write('^');
       {write(BoxHoriz);}
    end;
 end;
@@ -392,7 +468,10 @@ end;
 }
 procedure RefreshScore;
 begin
-   GotoXY(InfoCol, 1);  write('Score: ', Score);
+   GotoXY(InfoCol, 1);
+   write(PlayerName, ' Score: ', Score);
+   with HiScoreRec do
+      write('   Hi-Score: ', PlrName, ' ', Score);
 end;
 
-
+
