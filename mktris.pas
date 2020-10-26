@@ -7,23 +7,25 @@ program mktris(input,output);
             Tetris-like game / Tetris clone.
    File:    mktris.pas
    Purpose: Main source code file. Game logic. Main game loop.
-   Author:  Copyright (C) by Marek Karcz 2016-2018.
+   Author:  Copyright (C) by Marek Karcz 2016-2020.
             All rights reserved.
    ----------------------------------------------------------------------
 }
 
 const { constant definitions }
 
-   ScWidth   = 10;  {scene width}
-   InfoCol   = 25;  {column where info texts start}
-   ScHeight  = 23;  {scene height}
-   ScRow     = 1;   {scene left-upper corner coordinate (Y or Row)}
+   ScWidth    = 10;   {scene width}
+   InfoCol    = 25;   {column where info texts start}
+   ScHeight   = 23;   {scene height}
+   ScRow      = 1;    {scene left-upper corner coordinate (Y or Row)}
    { uncomment the constant below in final version }
    {ScCol     = 1;}   {scene left-upper corner coordinate (X or Col)}
-   IntlSpd   = 75;  {initial # of frames to refresh falling piece}
-   RefrRate  = 1;   {determines delay in the loop while the scene is refreshed}
-   NumOfPcs  = 7;   {number of pieces}
-   HiScFName = 'mktrishs.dat'; {hi-score file name}
+   IntlSpd    = 75;   {initial # of frames to refresh falling piece}
+   RefrRate   = 1;    {delay in the loop while the scene is refreshed}
+   NumOfPcs   = 7;    {number of pieces}
+   HiScFName  = 'mktrishs.dat';    {hi-score file name}
+   KeyBufLen  = 6;    {length of key-presses buffer}
+   InvalidKey = 'r'; {invalid key code}
 
 type { type declarations }
 
@@ -92,8 +94,13 @@ var { declare variables of the program }
    SolidBlocks: Boolean;
    PlayerName:  PlName;
    i:           Integer;
+   KeyBuf:      array[1..KeyBufLen] of Char;
+   KeyBufBegin: Integer;
+   KeyBufEnd:   Integer;
 
 {$I mktet01.pas}
+{$I mktetsct.pas}
+{$I mktetio.pas}
 
 {
   ---------------------------------------------------------
@@ -107,8 +114,9 @@ begin
    FallSpeed := IntlSpd;
    Frame := 0;
    Score := 0;
+
    {HiScore := ReadHiScore;}
-   for i:= 1 to 5 do
+   for i := 1 to 5 do
    begin
       with HiScTbl[i] do
       begin
@@ -127,8 +135,6 @@ begin
          Bucket[x1,x2] := Empty;
       end;
    Randomize;
-   Key := 'r';
-   ValidKey := False;
    Freeze := False;
    ClrScr;
    DrawBox(ScCol, ScRow, ScWidth, ScHeight);
@@ -146,7 +152,7 @@ begin
          write(Score);
       end;
    end;
-   GotoXY(InfoCol, 15); write('MKTRIS Copyright (C) by Marek Karcz 2016-2018.');
+   GotoXY(InfoCol, 15); write('MKTRIS Copyright (C) by Marek Karcz 2016-2020.');
    GotoXY(InfoCol+12, 16); write('All rights reserved.');
    {GotoXY(InfoCol, 18); write('<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>');}
    GotoXY(InfoCol+8, 20); write('< > - move left/right');
@@ -170,11 +176,16 @@ begin
         PrevSeqNum := -1;
       end;
    NewBlk := nil;
+   InitKeyBuf;
 end;
 
 {
   ---------------------------------------------------------
   Function checks if piece can be moved to the right.
+  TO DO:
+   * I have to refactor this ugly piece of code.
+     Information of how far to the right piece has its
+     cells filled can be included in the Piece itself.
   ---------------------------------------------------------
 }
 function CanMoveRight(prow, pcol, sn, rn : Integer) : Boolean;
@@ -204,6 +215,11 @@ begin
    begin
       row := prow - ScRow;
       col := pcol - ScCol - 1;
+      {
+        Condition below is problematic. If False, function will return
+        True! This means that piece too close to the right edge can be
+        moved even further to the right.
+      }
       if (col + 4) < ScWidth then
          while (row < (prow - Scrow + 4)) and (fret = True) do
          begin
@@ -221,6 +237,12 @@ end;
 {
   ---------------------------------------------------------
   Function checks if piece can be moved to the left.
+  TO DO:
+    * Refactor, it's ugly. Similar as in the CanMoveRight
+      function, information about first filled column on
+      the left can be included in the Piece data thus
+      eliminating the unnecessary loop calculating it from
+      the cells in the Piece.
   ---------------------------------------------------------
 }
 function CanMoveLeft(prow, pcol, sn, rn : Integer) : Boolean;
@@ -591,32 +613,6 @@ begin
 
 end;
 
-{
- ---------------------------------------------------------
-  Get input from player (keyboard).
-  Previous key must be consumed before new read is
-  allowed.
- ---------------------------------------------------------
-}
-procedure GetInput;
-var
-   LocKey: Char;
-   KPress: Boolean;
-begin
-   LocKey := 'r'; { undefined }
-   KPress := False;
-   { always consume HW keyboard key }
-   if KeyPressed then
-   begin
-      Read(Kbd,LocKey);
-      KPress := True;
-   end;
-   if (ValidKey = False) and KPress then
-   begin
-      Key := LocKey;
-      ValidKey := True;
-   end;
-end;
 
 {
  ---------------------------------------------------------
@@ -646,40 +642,6 @@ begin
    GameEnd := Ret;
 end;
 
-{
-   ------------------------------------------------------------------
-   Shift contents of hi-score table down and put new hi score on top.
-   ------------------------------------------------------------------
-}
-
-procedure ShftScoreTbl(pn: PlName; scre: Integer);
-var
-   i: Integer;
-   {n: PlName;
-   s: Integer;}
-begin
-   for i := 5 downto 2 do
-   begin
-      HiScTbl[i] := HiScTbl[i-1];
-      {
-      with HiScTbl[i-1] do
-      begin
-         n := PlrName;
-         s := Score;
-      end;
-      with HiScTbl[i] do
-      begin
-         PlrName := n;
-         Score := s;
-      end;
-      }
-   end;
-   with HiScTbl[1] do
-   begin
-      PlrName := pn;
-      Score := scre;
-   end;
-end;
 
 { --------------------- MAIN PROGRAM ---------------- }
 
@@ -721,7 +683,7 @@ begin
    InitGame;
    while ((not GameEnd) and (not GameOver)) do
    begin
-      if (Frame mod FallSpeed) = 0 then
+      if ValidKey or ((Frame mod FallSpeed) = 0) then
       begin
          UpdScene;
          if Frame > 30000 then Frame := 0;
@@ -729,32 +691,14 @@ begin
       end;
       if GameOver then
       begin
-         i := Score;
-         with HiScTbl[1] do
-         begin
-            if i > Score then
-            begin
-               with HiScoreRec do
-               begin
-                  PlrName := PlayerName;
-                  Score := i;
-               end;
-               GotoXY(InfoCol, 11);
-               write('Updating hi-score file...');
-               ShftScoreTbl(PlayerName, i);
-               WriteHiScore;
-               GotoXY(InfoCol, 11);
-               write('                         ');
-            end;
-         end;
-         {if Score > HiScore then WriteHiScore(Score);}
+         InsertScore(PlayerName, Score);
          GotoXY(InfoCol, 10);
          if Pretty then write(Chr(27), 'G2');
          write('*** G A M E   O V E R ***');
          if Pretty then write(Chr(27), 'G0');
          GotoXY(InfoCol, 12);
          write('Play again? (Y/N)');
-         Key := 'r';
+         Key := InvalidKey;
          while ((Key <> 'y') and (Key <> 'n')) do
          begin
             repeat until KeyPressed;
@@ -774,4 +718,5 @@ begin
    writeln('Thank you for playing!');
    writeln;
 end.
-
+
+{ * * *            EOF            * * * }
